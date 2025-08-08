@@ -4,8 +4,11 @@ I used Gemini to build a Midi Controlled Audio Player
 
 MIDI CHART:
 PLAY - CC 109 Value 127
+
 PAUSE - CC 109 Value 0
+
 PREVIOUS SONG - CC 110 Value 0
+
 NEXT SONG - CC 110 Value 127
 
 CC 108 Selects song in playlist. Value 1 would select song 1, value 2 for song 2, etc.
