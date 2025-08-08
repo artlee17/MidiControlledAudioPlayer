@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Midi Controlled Audio Player</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for the playlist */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937; /* Gray-800 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4b5563; /* Gray-600 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* Gray-500 */
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #10b981; /* Emerald-500 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #10b981; /* Emerald-500 */
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 min-h-screen flex flex-col items-center justify-center p-6">
+
+    <main class="flex-1 w-full max-w-2xl flex flex-col justify-between items-center">
+        <!-- Song Info Section -->
+        <section class="flex flex-col items-center justify-center w-full">
+            <div id="song-info" class="bg-gray-800 p-6 rounded-xl shadow-2xl flex flex-col items-center space-y-4 w-full">
+                <h2 id="song-title" class="text-3xl font-bold text-white text-center cursor-pointer hover:text-emerald-400 transition-colors">No Song Loaded</h2>
+                <p id="song-artist" class="text-xl text-gray-400 text-center cursor-pointer hover:text-emerald-400 transition-colors">Artist</p>
+            </div>
+        </section>
+
+        <!-- Player Controls Section -->
+        <div class="w-full bg-gray-950 p-4 md:p-6 rounded-xl shadow-2xl flex flex-col items-center mt-8 max-w-2xl">
+            <audio id="audio-player" class="hidden"></audio>
+
+            <!-- Progress Bar -->
+            <div class="w-full flex items-center space-x-4 mb-4">
+                <span id="current-time" class="text-sm text-gray-400">0:00</span>
+                <input type="range" id="seek-slider" min="0" max="0" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" disabled />
+                <span id="duration" class="text-sm text-gray-400">0:00</span>
+            </div>
+
+            <!-- Main Controls -->
+            <div class="flex items-center justify-center space-x-4 mb-4">
+                <button id="prev-btn" class="p-3 rounded-full bg-gray-800 hover:bg-emerald-600 transition-colors duration-200 shadow-md" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-gray-300 hover:text-white"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                </button>
+                <button id="play-pause-btn" class="p-4 rounded-full bg-emerald-500 hover:bg-emerald-600 transition-colors duration-200 shadow-lg transform hover:scale-105" disabled>
+                    <svg id="play-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-white"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-white hidden"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                </button>
+                <button id="next-btn" class="p-3 rounded-full bg-gray-800 hover:bg-emerald-600 transition-colors duration-200 shadow-md" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-gray-300 hover:text-white"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                </button>
+                <button id="autoplay-btn" class="p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors duration-200 shadow-md" title="Autoplay Off">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-gray-300"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path><path d="m12 16 4-4-4-4"></path></svg>
+                </button>
+            </div>
+
+            <!-- Volume Control -->
+            <div class="flex items-center space-x-3 w-full max-w-xs">
+                <button id="mute-btn" class="p-2 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors duration-200" disabled>
+                    <svg id="volume-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-gray-300"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    <svg id="mute-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-gray-300 hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="22" y1="9" x2="16" y2="15"></line><line x1="16" y1="9" x2="22" y2="15"></line></svg>
+                </button>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.7" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" disabled />
+                <span id="volume-level" class="text-sm text-gray-400 w-10 text-right">70%</span>
+            </div>
+        </div>
+
+        <!-- MIDI Input Section -->
+        <section class="w-full max-w-2xl bg-gray-950 p-6 rounded-xl shadow-2xl mt-8">
+            <div class="flex items-center space-x-3 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-emerald-400"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                <h3 class="text-2xl font-bold text-white">MIDI Input</h3>
+            </div>
+            <div id="midi-controls">
+                <p id="midi-message" class="text-gray-400 italic">No MIDI devices found.</p>
+            </div>
+        </section>
+
+        <!-- Playlist Section -->
+        <section class="w-full max-w-2xl bg-gray-950 p-6 rounded-xl shadow-2xl mt-8 flex-grow">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-emerald-400"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                    <h3 class="text-2xl font-bold text-white">Playlist</h3>
+                </div>
+                <input type="file" id="file-input" accept="audio/*" multiple class="hidden" />
+                <button id="add-song-btn" class="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors duration-200 flex items-center space-x-2 shadow-md transform hover:scale-105">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    <span>Add Song</span>
+                </button>
+            </div>
+
+            <div id="playlist-container" class="h-64 overflow-y-auto custom-scrollbar">
+                <div class="flex justify-center items-center h-full text-center text-gray-400 italic">
+                    <p>Your playlist is empty. Click "Add Song" to get started!</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const audioPlayer = document.getElementById('audio-player');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const nextBtn = document.getElementById('next-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const seekSlider = document.getElementById('seek-slider');
+            const volumeSlider = document.getElementById('volume-slider');
+            const muteBtn = document.getElementById('mute-btn');
+            const volumeIcon = document.getElementById('volume-icon');
+            const muteIcon = document.getElementById('mute-icon');
+            const currentTimeEl = document.getElementById('current-time');
+            const durationEl = document.getElementById('duration');
+            const addSongBtn = document.getElementById('add-song-btn');
+            const fileInput = document.getElementById('file-input');
+            const playlistContainer = document.getElementById('playlist-container');
+            const songTitleEl = document.getElementById('song-title');
+            const songArtistEl = document.getElementById('song-artist');
+            const autoplayBtn = document.getElementById('autoplay-btn');
+
+            // Player State
+            let playlist = [];
+            let currentSongIndex = 0;
+            let isPlaying = false;
+            let isMuted = false;
+            let isAutoplayEnabled = false;
+
+            // MIDI State
+            let midiAccess = null;
+            let midiInputs = [];
+            let selectedMidiInputId = '';
+            let selectedMidiChannel = 'all';
+            const midiControlsEl = document.getElementById('midi-controls');
+            const midiMessageEl = document.getElementById('midi-message');
+
+            // Utility Functions
+            const formatTime = (time) => {
+                if (isNaN(time) || time === Infinity) return "0:00";
+                const minutes = Math.floor(time / 60);
+                const seconds = Math.floor(time % 60);
+                return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            };
+
+            const toggleAutoplay = () => {
+                isAutoplayEnabled = !isAutoplayEnabled;
+                if (isAutoplayEnabled) {
+                    autoplayBtn.classList.remove('bg-gray-800', 'hover:bg-gray-700');
+                    autoplayBtn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+                    autoplayBtn.title = "Autoplay On";
+                } else {
+                    autoplayBtn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+                    autoplayBtn.classList.add('bg-gray-800', 'hover:bg-gray-700');
+                    autoplayBtn.title = "Autoplay Off";
+                }
+            };
+
+            const updatePlayerUI = () => {
+                const currentSong = playlist[currentSongIndex];
+                if (currentSong) {
+                    songTitleEl.textContent = currentSong.title;
+                    songArtistEl.textContent = currentSong.artist;
+                    [playPauseBtn, nextBtn, prevBtn, seekSlider, volumeSlider, muteBtn, autoplayBtn].forEach(btn => btn.disabled = false);
+                } else {
+                    songTitleEl.textContent = "No Song Loaded";
+                    songArtistEl.textContent = "";
+                    [playPauseBtn, nextBtn, prevBtn, seekSlider, volumeSlider, muteBtn, autoplayBtn].forEach(btn => btn.disabled = true);
+                }
+                
+                const allListItems = playlistContainer.querySelectorAll('li');
+                allListItems.forEach((li, index) => {
+                    li.classList.remove('bg-emerald-500', 'text-white', 'shadow-lg');
+                    li.classList.add('bg-gray-800', 'hover:bg-gray-700', 'text-gray-200');
+                    if (index === currentSongIndex) {
+                        li.classList.remove('bg-gray-800', 'hover:bg-gray-700', 'text-gray-200');
+                        li.classList.add('bg-emerald-500', 'text-white', 'shadow-lg');
+                    }
+                });
+            };
+
+            const togglePlayPause = () => {
+                if (playlist.length === 0) return;
+                isPlaying = !isPlaying;
+                if (isPlaying) {
+                    audioPlayer.play();
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                } else {
+                    audioPlayer.pause();
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                }
+            };
+            
+            const playNext = () => {
+                if (playlist.length === 0) return;
+                currentSongIndex = (currentSongIndex + 1) % playlist.length;
+                loadSong(currentSongIndex, true);
+            };
+
+            const playPrevious = () => {
+                if (playlist.length === 0) return;
+                currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+                loadSong(currentSongIndex, true);
+            };
+
+            const loadSong = (index, shouldPlay = true) => {
+                if (playlist.length === 0) {
+                    isPlaying = false;
+                    audioPlayer.src = "";
+                    updatePlayerUI();
+                    return;
+                }
+                currentSongIndex = index;
+                audioPlayer.src = playlist[currentSongIndex].audioSrc;
+                audioPlayer.currentTime = 0;
+                audioPlayer.load();
+                
+                if (shouldPlay) {
+                    isPlaying = true;
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                    audioPlayer.play();
+                } else {
+                    isPlaying = false;
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                    audioPlayer.pause();
+                }
+                updatePlayerUI();
+            };
+
+            const renderPlaylist = () => {
+                if (playlist.length === 0) {
+                    playlistContainer.innerHTML = `
+                        <div class="flex justify-center items-center h-full text-center text-gray-400 italic">
+                            <p>Your playlist is empty. Click "Add Song" to get started!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                playlistContainer.innerHTML = `
+                    <ul id="playlist-list" class="space-y-2"></ul>
+                `;
+                const playlistList = document.getElementById('playlist-list');
+                
+                playlist.forEach((song, index) => {
+                    const li = document.createElement('li');
+                    li.classList.add('flex', 'items-center', 'justify-between', 'p-3', 'rounded-lg', 'cursor-pointer', 'transition-colors', 'duration-200', 'bg-gray-800', 'hover:bg-gray-700', 'text-gray-200');
+                    if (index === currentSongIndex) {
+                        li.classList.remove('bg-gray-800', 'hover:bg-gray-700', 'text-gray-200');
+                        li.classList.add('bg-emerald-500', 'text-white', 'shadow-lg');
+                    }
+                    li.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold truncate">${song.title}</p>
+                            <p class="text-sm text-gray-400 truncate">${song.artist}</p>
+                        </div>
+                        <button class="remove-song-btn p-1 rounded-full ml-4 transition-colors duration-200 ${index === currentSongIndex ? 'text-white hover:text-red-300' : 'text-gray-400 hover:text-red-500'}" title="Remove song" data-id="${song.id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    `;
+                    li.addEventListener('click', () => loadSong(index));
+                    li.querySelector('.remove-song-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeSong(song.id);
+                    });
+                    playlistList.appendChild(li);
+                });
+            };
+
+            const removeSong = (songIdToRemove) => {
+                const indexToRemove = playlist.findIndex(song => song.id === songIdToRemove);
+                if (indexToRemove === -1) return;
+
+                playlist = playlist.filter(song => song.id !== songIdToRemove);
+
+                if (indexToRemove === currentSongIndex) {
+                    if (playlist.length === 0) {
+                        isPlaying = false;
+                        currentSongIndex = 0;
+                        audioPlayer.src = "";
+                    } else {
+                        const nextIndex = Math.min(indexToRemove, playlist.length - 1);
+                        loadSong(nextIndex, true);
+                    }
+                } else if (indexToRemove < currentSongIndex) {
+                    currentSongIndex--;
+                }
+                
+                renderPlaylist();
+                updatePlayerUI();
+            };
+
+            const handleSongEnded = () => {
+                if (isAutoplayEnabled) {
+                    playNext();
+                } else {
+                    isPlaying = false;
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                }
+            };
+            
+            // Event Listeners
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            nextBtn.addEventListener('click', () => playNext());
+            prevBtn.addEventListener('click', () => playPrevious());
+            autoplayBtn.addEventListener('click', toggleAutoplay);
+            addSongBtn.addEventListener('click', () => fileInput.click());
+            muteBtn.addEventListener('click', () => {
+                isMuted = !isMuted;
+                audioPlayer.muted = isMuted;
+                if (isMuted) {
+                    volumeIcon.classList.add('hidden');
+                    muteIcon.classList.remove('hidden');
+                    volumeSlider.value = 0;
+                } else {
+                    volumeIcon.classList.remove('hidden');
+                    muteIcon.classList.add('hidden');
+                    volumeSlider.value = audioPlayer.volume;
+                }
+                volumeSlider.disabled = isMuted;
+                document.getElementById('volume-level').textContent = isMuted ? '0%' : `${Math.round(audioPlayer.volume * 100)}%`;
+            });
+            fileInput.addEventListener('change', (event) => {
+                const files = event.target.files;
+                if (files.length > 0) {
+                    const newSongs = Array.from(files)
+                        .filter(file => file.type.startsWith('audio/'))
+                        .map(file => ({
+                            title: file.name.replace(/\.[^/.]+$/, ""),
+                            artist: "Local File",
+                            audioSrc: URL.createObjectURL(file),
+                            id: file.name + Date.now()
+                        }));
+
+                    const wasEmpty = playlist.length === 0;
+                    playlist.push(...newSongs);
+                    if (wasEmpty) {
+                        loadSong(0, true);
+                    }
+                    renderPlaylist();
+                    updatePlayerUI();
+                    event.target.value = null;
+                }
+            });
+
+            audioPlayer.addEventListener('timeupdate', () => {
+                currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
+                seekSlider.value = audioPlayer.currentTime;
+            });
+            audioPlayer.addEventListener('loadedmetadata', () => {
+                durationEl.textContent = formatTime(audioPlayer.duration);
+                seekSlider.max = audioPlayer.duration;
+            });
+            audioPlayer.addEventListener('ended', handleSongEnded);
+
+            seekSlider.addEventListener('input', () => {
+                audioPlayer.currentTime = seekSlider.value;
+            });
+
+            volumeSlider.addEventListener('input', () => {
+                audioPlayer.volume = volumeSlider.value;
+                document.getElementById('volume-level').textContent = `${Math.round(audioPlayer.volume * 100)}%`;
+                isMuted = audioPlayer.volume === 0;
+                if (isMuted) {
+                    volumeIcon.classList.add('hidden');
+                    muteIcon.classList.remove('hidden');
+                } else {
+                    volumeIcon.classList.remove('hidden');
+                    muteIcon.classList.add('hidden');
+                }
+            });
+
+            // Editable title and artist
+            songTitleEl.addEventListener('click', () => {
+                const currentTitle = songTitleEl.textContent;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentTitle;
+                input.className = "text-3xl font-bold text-white text-center bg-gray-700 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full";
+                
+                songTitleEl.replaceWith(input);
+                input.focus();
+
+                const saveTitle = () => {
+                    const newTitle = input.value.trim();
+                    if (newTitle !== '' && playlist[currentSongIndex]) {
+                        playlist[currentSongIndex].title = newTitle;
+                    }
+                    input.replaceWith(songTitleEl);
+                    renderPlaylist();
+                    updatePlayerUI();
+                };
+
+                input.addEventListener('blur', saveTitle);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') saveTitle();
+                });
+            });
+
+            songArtistEl.addEventListener('click', () => {
+                const currentArtist = songArtistEl.textContent;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentArtist;
+                input.className = "text-xl text-gray-400 text-center bg-gray-700 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full";
+                
+                songArtistEl.replaceWith(input);
+                input.focus();
+
+                const saveArtist = () => {
+                    const newArtist = input.value.trim();
+                    if (newArtist !== '' && playlist[currentSongIndex]) {
+                        playlist[currentSongIndex].artist = newArtist;
+                    }
+                    input.replaceWith(songArtistEl);
+                    renderPlaylist();
+                    updatePlayerUI();
+                };
+
+                input.addEventListener('blur', saveArtist);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') saveArtist();
+                });
+            });
+
+            // MIDI setup and event handling
+            const updateMidiInputs = (midi) => {
+                midiInputs = Array.from(midi.inputs.values());
+                let midiHtml = '';
+                if (midiInputs.length > 0) {
+                    const inputOptions = midiInputs.map((input, index) => `<option value="${input.id}">${input.name || `Device ${index + 1}`}</option>`).join('');
+                    const channelOptions = [...Array(16)].map((_, i) => `<option value="${i+1}">Channel ${i+1}</option>`).join('');
+
+                    midiHtml = `
+                        <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+                            <div class="flex-1 flex flex-col space-y-2">
+                                <label for="midi-device-select" class="text-gray-300 text-sm">Select MIDI Device:</label>
+                                <select id="midi-device-select" class="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    ${inputOptions}
+                                </select>
+                            </div>
+                            <div class="flex-1 flex flex-col space-y-2">
+                                <label for="midi-channel-select" class="text-gray-300 text-sm">Select MIDI Channel:</label>
+                                <select id="midi-channel-select" class="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <option value="all">All Channels</option>
+                                    ${channelOptions}
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                    midiControlsEl.innerHTML = midiHtml;
+                    
+                    const midiDeviceSelect = document.getElementById('midi-device-select');
+                    midiDeviceSelect.value = selectedMidiInputId || midiInputs[0].id;
+                    selectedMidiInputId = midiDeviceSelect.value;
+                    midiDeviceSelect.addEventListener('change', (e) => {
+                        selectedMidiInputId = e.target.value;
+                        setupMidiListener();
+                    });
+
+                    const midiChannelSelect = document.getElementById('midi-channel-select');
+                    midiChannelSelect.value = selectedMidiChannel;
+                    midiChannelSelect.addEventListener('change', (e) => {
+                        selectedMidiChannel = e.target.value;
+                        setupMidiListener();
+                    });
+
+                    setupMidiListener();
+
+                } else {
+                    midiMessageEl.textContent = "No MIDI devices found.";
+                }
+            };
+            
+            const setupMidiListener = () => {
+                if (midiAccess) {
+                    midiInputs.forEach(input => {
+                        input.onmidimessage = null;
+                    });
+                    const input = midiInputs.find(input => input.id === selectedMidiInputId);
+                    if (input) {
+                        input.onmidimessage = (message) => {
+                            const data = message.data;
+                            const cmd = data[0];
+                            const ccNumber = data[1];
+                            const ccValue = data[2];
+                            const midiChannel = (cmd & 0x0F) + 1;
+        
+                            if (selectedMidiChannel !== 'all' && parseInt(selectedMidiChannel) !== midiChannel) {
+                                return;
+                            }
+        
+                            midiMessageEl.textContent = `MIDI: Cmd ${cmd}, Ch ${midiChannel}, CC ${ccNumber}, Val ${ccValue}`;
+        
+                            if (cmd >= 0xB0 && cmd <= 0xBF) {
+                                if (ccNumber === 109) { // Play/Pause control
+                                    if (ccValue === 127 && !isPlaying) {
+                                        togglePlayPause();
+                                    } else if (ccValue === 0 && isPlaying) {
+                                        togglePlayPause();
+                                    }
+                                } else if (ccNumber === 108) { // Song selection
+                                    const songIndex = ccValue - 1;
+                                    if (songIndex >= 0 && songIndex < playlist.length) {
+                                        loadSong(songIndex, false);
+                                    }
+                                } else if (ccNumber === 110) { // Next/Previous song
+                                    if (ccValue === 127) {
+                                        if (playlist.length === 0) return;
+                                        currentSongIndex = (currentSongIndex + 1) % playlist.length;
+                                        loadSong(currentSongIndex, false);
+                                    } else if (ccValue === 0) {
+                                        if (playlist.length === 0) return;
+                                        currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+                                        loadSong(currentSongIndex, false);
+                                    }
+                                }
+                            }
+                        };
+                    }
+                }
+            };
+
+            if (navigator.requestMIDIAccess) {
+                navigator.requestMIDIAccess({ sysex: false })
+                    .then((midi) => {
+                        midiAccess = midi;
+                        updateMidiInputs(midi);
+                        midi.onstatechange = () => updateMidiInputs(midi);
+                    })
+                    .catch((err) => {
+                        console.error("Failed to get MIDI access:", err);
+                        midiMessageEl.textContent = "MIDI access denied or not supported. Please allow MIDI access in browser settings.";
+                    });
+            } else {
+                midiMessageEl.textContent = "Web MIDI API not supported in this browser.";
+            }
+
+            // Initial UI update
+            updatePlayerUI();
+            renderPlaylist();
+        });
+    </script>
+</body>
+</html>
